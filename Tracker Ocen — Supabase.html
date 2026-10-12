@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tracker Ocen</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #0e0e12;
+  --surface: #16161d;
+  --card: #1c1c26;
+  --border: #2a2a38;
+  --border-mid: #3a3a50;
+  --accent: #7c6af7;
+  --accent-dim: #3d3780;
+  --accent-glow: rgba(124,106,247,0.15);
+  --text: #e8e8f0;
+  --text-2: #9090a8;
+  --text-3: #555568;
+  --green: #4ade80;
+  --green-bg: rgba(74,222,128,0.1);
+  --red: #f87171;
+  --red-bg: rgba(248,113,113,0.1);
+  --blue: #60a5fa;
+  --blue-bg: rgba(96,165,250,0.1);
+  --gold: #fbbf24;
+  --gold-bg: rgba(251,191,36,0.1);
+  --radius: 10px;
+  --radius-lg: 16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100vh}
+
+/* HEADER */
+header{border-bottom:1px solid var(--border);padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:10}
+.logo{font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--text);display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;background:var(--accent);border-radius:50%}
+.header-actions{display:flex;gap:8px;align-items:center}
+#status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-3)}
+#status-dot.ok{background:var(--green)}
+#status-dot.err{background:var(--red)}
+
+/* MAIN */
+main{max-width:960px;margin:0 auto;padding:1.5rem}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:1.5rem}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem 1.25rem 1rem}
+.stat-label{font-size:12px;color:var(--text-2);margin-bottom:.5rem;letter-spacing:.02em}
+.stat-val{font-size:28px;font-weight:600;letter-spacing:-.02em}
+.stat-val.pos{color:var(--green)}
+.stat-val.neg{color:var(--red)}
+.stat-val.neu{color:var(--text)}
+.stat-sub{font-size:12px;color:var(--text-3);margin-top:4px}
+
+/* FILTER BAR */
+.filter-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+
+/* ADD FORM */
+.add-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:1.5rem}
+.add-title{font-size:13px;font-weight:500;color:var(--text-2);margin-bottom:1rem;letter-spacing:.02em}
+.add-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:11px;color:var(--text-3);letter-spacing:.04em}
+.field input,.field select{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:14px;color:var(--text);outline:none;height:36px;transition:.15s;font-family:inherit}
+.field input:focus,.field select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.field input{min-width:140px}
+.field select{min-width:110px}
+.f-wide{flex:1;min-width:160px}
+.btn{height:36px;padding:0 14px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border-mid);background:var(--surface);color:var(--text);transition:.15s;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
+.btn:hover{background:var(--border);border-color:var(--border-mid)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-pay{background:var(--green-bg);border-color:rgba(74,222,128,0.3);color:var(--green)}
+.btn-pay:hover{background:rgba(74,222,128,0.2)}
+
+/* TABLE */
+.table-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.table-title{font-size:14px;font-weight:500;color:var(--text)}
+.table-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--surface);padding:10px 14px;text-align:left;font-size:11px;font-weight:500;color:var(--text-3);letter-spacing:.06em;border-bottom:1px solid var(--border)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,0.02)}
+tbody tr.paid-row{opacity:.45}
+tbody tr.paid-row td{text-decoration:line-through}
+td{padding:10px 14px;font-size:14px;color:var(--text);vertical-align:middle}
+
+/* GRADE BADGE */
+.badge{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;font-weight:600;font-size:13px}
+.b1{background:var(--red-bg);color:var(--red)}
+.b4{background:var(--blue-bg);color:var(--blue)}
+.b5{background:var(--green-bg);color:var(--green)}
+.b6{background:var(--gold-bg);color:var(--gold)}
+
+.amount{font-weight:500;font-size:13px}
+.amount.pos{color:var(--green)}
+.amount.neg{color:var(--red)}
+.paid-tag{font-size:11px;background:var(--green-bg);color:var(--green);border-radius:6px;padding:2px 7px;border:1px solid rgba(74,222,128,0.2)}
+.empty{text-align:center;padding:3rem 1rem;color:var(--text-3);font-size:14px}
+.del-btn{background:none;border:none;cursor:pointer;color:var(--text-3);padding:4px 8px;border-radius:6px;font-size:12px;transition:.15s;font-family:inherit}
+.del-btn:hover{background:var(--red-bg);color:var(--red)}
+.loading{text-align:center;padding:2rem;color:var(--text-3);font-size:13px}
+.error-msg{background:var(--red-bg);border:1px solid rgba(248,113,113,0.25);border-radius:var(--radius);padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:1rem;display:none}
+
+/* TOAST */
+#toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--card);border:1px solid var(--border-mid);border-radius:var(--radius-lg);padding:.75rem 1rem;font-size:13px;color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,.4);transform:translateY(80px);opacity:0;transition:.25s;z-index:50;max-width:280px}
+#toast.show{transform:translateY(0);opacity:1}
+
+@media(max-width:600px){
+  .add-row,.filter-card{flex-direction:column}
+  .field,.f-wide{width:100%}
+  .btn{width:100%
+  ;justify-content:center}
+  td,th{padding:8px 10px;font-size:13px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-dot"></div>Tracker Ocen</div>
+  <div class="header-actions">
+    <div id="status-dot" title="Status bazy"></div>
+  </div>
+</header>
+
+<main>
+  <div class="error-msg" id="err-msg"></div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Do wypłaty (miesiąc)</div>
+      <div class="stat-val neu" id="s-pending">—</div>
+      <div class="stat-sub" id="s-pending-count">0 ocen</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Wypłacono (miesiąc)</div>
+      <div class="stat-val neu" id="s-paid">—</div>
+      <div class="stat-sub" id="s-paid-count">0 wypłat</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Łącznie w miesiącu</div>
+      <div class="stat-val neu" id="s-total">—</div>
+      <div class="stat-sub">wybrany okres</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Ocen w bazie</div>
+      <div class="stat-val neu" id="s-count">—</div>
+      <div class="stat-sub">łącznie wpisów</div>
+    </div>
+  </div>
+
+  <!-- FILTER / VIEW SELECTOR -->
+  <div class="filter-card">
+    <div class="field">
+      <label>WYŚWIETL MIESIĄC</label>
+      <select id="filter-month" onchange="loadEntries()">
+        <option value="01">Styczeń</option><option value="02">Luty</option>
+        <option value="03">Marzec</option><option value="04">Kwiecień</option>
+        <option value="05">Maj</option><option value="06">Czerwiec</option>
+        <option value="07">Lipiec</option><option value="08">Sierpień</option>
+        <option value="09">Wrzesień</option><option value="10">Październik</option>
+        <option value="11">Listopad</option><option value="12">Grudzień</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>WYŚWIETL ROK</label>
+      <select id="filter-year" onchange="loadEntries()">
+        <option>2024</option><option>2025</option><option selected>2026</option>
+        <option>2027</option><option>2028</option><option>2029</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ADD FORM -->
+  <div class="add-card">
+    <div class="add-title">DODAJ OCENĘ</div>
+    <div class="add-row">
+      <div class="field f-wide">
+        <label>PRZEDMIOT</label>
+        <input id="f-subj" placeholder="np. Matematyka">
+      </div>
+      <div class="field" style="width: 90px;">
+        <label>DZIEŃ</label>
+        <input id="f-day" type="number" min="1" max="31" placeholder="np. 12" style="min-width: unset;">
+      </div>
+      <div class="field">
+        <label>MIESIĄC</label>
+        <select id="f-month">
+          <option value="01">Styczeń</option><option value="02">Luty</option>
+          <option value="03">Marzec</option><option value="04">Kwiecień</option>
+          <option value="05">Maj</option><option value="06">Czerwiec</option>
+          <option value="07">Lipiec</option><option value="08">Sierpień</option>
+          <option value="09">Wrzesień</option><option value="10">Październik</option>
+          <option value="11">Listopad</option><option value="12">Grudzień</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>ROK</label>
+        <select id="f-year">
+          <option>2024</option><option>2025</option><option selected>2026</option>
+          <option>2027</option><option>2028</option><option>2029</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>OCENA</label>
+        <select id="f-grade">
+          <option value="1">1 (-10 zł)</option>
+          <option value="4">4 (+5 zł)</option>
+          <option value="5">5 (+10 zł)</option>
+          <option value="6">6 (+15 zł)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>UWAGI</label>
+        <input id="f-note" placeholder="opcjonalnie" style="min-width:130px">
+      </div>
+      <button class="btn btn-primary" onclick="addEntry()">+ Dodaj</button>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="table-header">
+    <div class="table-title" id="table-title-label">Historia ocen</div>
+    <button class="btn btn-pay" onclick="wypłać()" id="pay-btn">💸 Wypłać nieprzesłane z tego miesiąca</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>PRZEDMIOT</th>
+        <th>DATA</th>
+        <th>OCENA</th>
+        <th>KWOTA</th>
+        <th>STATUS</th>
+        <th>UWAGI</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="tbody"><tr><td colspan="7" class="loading">Ładowanie...</td></tr></tbody>
+    </table>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// --- KONFIGURACJA SUPABASE (WPISANA NA STAŁE) ---
+const SUPABASE_URL = 'https://ysxlvjuijmhzhonhthoz.supabase.co'; // <- TUTAJ WKLEJ SWÓJ URL
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzeGx2anVpam1oemhvbmh0aG96Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4MTk1MjQsImV4cCI6MjEwNzM5NTUyNH0.J-iDsa0u_e5QO0DnyqeLygI0jebwQ6d0VMWhwshen-g'; // <- TUTAJ WKLEJ SWÓJ KLUCZ ANON
+
+const MONTHS = {
+  '01':'Styczeń','02':'Luty','03':'Marzec','04':'Kwiecień',
+  '05':'Maj','06':'Czerwiec','07':'Lipiec','08':'Sierpień',
+  '09':'Wrzesień','10':'Październik','11':'Listopad','12':'Grudzień'
+};
+const AMOUNTS = {1:-10,4:5,5:10,6:15};
+
+let sb = null;
+
+function toast(msg, dur=2800){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+
+function showError(msg){
+  const el=document.getElementById('err-msg');
+  el.textContent=msg;el.style.display=msg?'block':'none';
+}
+
+function setStatus(ok){
+  const d=document.getElementById('status-dot');
+  d.className='';d.classList.add(ok?'ok':'err');
+}
+
+// Automatyczne połączenie przy starcie strony
+async function initSupabase(){
+  try{
+    sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const {error}=await sb.from('grades').select('id').limit(1);
+    if(error)throw error;
+    setStatus(true);
+    loadEntries();
+  }catch(e){
+    toast('Błąd połączenia z bazą: '+e.message, 5000);
+    setStatus(false);
+  }
+}
+
+async function loadEntries(){
+  if(!sb)return;
+  
+  const selMonth = document.getElementById('filter-month').value;
+  const selYear = document.getElementById('filter-year').value;
+
+  const {data,error}=await sb.from('grades')
+    .select('*')
+    .eq('month', selMonth)
+    .eq('year', selYear);
+
+  if(error){showError('Błąd ładowania: '+error.message);return;}
+  
+  // Sortowanie numeryczne od najmniejszego dnia do największego (np. 1, 2, 11)
+  const sortedData = (data || []).sort((a, b) => parseInt(a.day, 10) - parseInt(b.day, 10));
+
+  const {count}=await sb.from('grades').select('*', {count: 'exact', head: true});
+
+  showError('');
+  renderTable(sortedData, selMonth, selYear);
+  renderStats(sortedData, count||0);
+}
+
+function renderStats(rows, totalCount){
+  const pending=rows.filter(r=>!r.paid);
+  const paid=rows.filter(r=>r.paid);
+  const pendSum=pending.reduce((a,r)=>a+r.amount,0);
+  const paidSum=paid.reduce((a,r)=>a+r.amount,0);
+  const total=pendSum+paidSum;
+
+  const fmt=v=>(v>=0?'+':'')+v+' zł';
+  const el=(id,v)=>{
+    const e=document.getElementById(id);
+    e.textContent=fmt(v);
+    e.className='stat-val '+(v>0?'pos':v<0?'neg':'neu');
+  };
+  el('s-pending',pendSum);el('s-paid',paidSum);el('s-total',total);
+  document.getElementById('s-pending-count').textContent=pending.length+' ocen';
+  document.getElementById('s-paid-count').textContent=paid.length+' wypłat';
+  document.getElementById('s-count').textContent=totalCount;
+  document.getElementById('s-count').className='stat-val neu';
+}
+
+function renderTable(rows, month, year){
+  const tbody=document.getElementById('tbody');
+  document.getElementById('table-title-label').textContent = `Historia ocen za ${MONTHS[month]} ${year}`;
+  
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="7" class="empty">Brak wpisów za ${MONTHS[month]} ${year} — dodaj pierwszy wyżej</td></tr>`;
+    return;
+  }
+  
+  let html='';
+  rows.forEach(r=>{
+    const amt=r.amount;
+    const amtStr=(amt>=0?'+':'')+amt+' zł';
+    const amtClass='amount '+(amt>=0?'pos':'neg');
+    
+    const dayFormatted = r.day ? String(r.day).padStart(2, '0') : '01';
+    
+    html+=`<tr class="${r.paid?'paid-row':''}">
+      <td>${r.subject}</td>
+      <td style="color:var(--text-2);font-size:13px">${dayFormatted}.${r.month}.${r.year}</td>
+      <td><span class="badge b${r.grade}">${r.grade}</span></td>
+      <td class="${amtClass}">${amtStr}</td>
+      <td>${r.paid?'<span class="paid-tag">wypłacono</span>':''}</td>
+      <td style="font-size:12px;color:var(--text-3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.note||''}</td>
+      <td><button class="del-btn" onclick="deleteEntry(${r.id})">usuń</button></td>
+    </tr>`;
+  });
+  tbody.innerHTML=html;
+}
+
+async function addEntry(){
+  if(!sb){toast('Brak połączenia z bazą');return;}
+  const subj=document.getElementById('f-subj').value.trim();
+  if(!subj){
+    document.getElementById('f-subj').focus();
+    document.getElementById('f-subj').style.borderColor='var(--red)';
+    setTimeout(()=>document.getElementById('f-subj').style.borderColor='',1500);
+    return;
+  }
+  const day=document.getElementById('f-day').value.trim();
+  if(!day){
+    document.getElementById('f-day').focus();
+    document.getElementById('f-day').style.borderColor='var(--red)';
+    setTimeout(()=>document.getElementById('f-day').style.borderColor='',1500);
+    return;
+  }
+
+  const month=document.getElementById('f-month').value;
+  const year=document.getElementById('f-year').value;
+  const grade=parseInt(document.getElementById('f-grade').value);
+  const note=document.getElementById('f-note').value.trim();
+  const amount=AMOUNTS[grade];
+
+  const {error}=await sb.from('grades').insert({subject:subj,day,month,year,grade,amount,note,paid:false});
+  if(error){toast('Błąd: '+error.message,3500);return;}
+  
+  document.getElementById('filter-month').value = month;
+  document.getElementById('filter-year').value = year;
+
+  document.getElementById('f-subj').value='';
+  document.getElementById('f-note').value='';
+  toast('Dodano ocenę '+grade+' z '+subj);
+  loadEntries();
+}
+
+async function deleteEntry(id){
+  if(!sb||!confirm('Usunąć tę ocenę?'))return;
+  const {error}=await sb.from('grades').delete().eq('id',id);
+  if(error){toast('Błąd usuwania',3000);return;}
+  toast('Usunięto');loadEntries();
+}
+
+async function wypłać(){
+  if(!sb)return;
+  const selMonth = document.getElementById('filter-month').value;
+  const selYear = document.getElementById('filter-year').value;
+
+  const {data,error}=await sb.from('grades').select('id,amount').eq('paid',false).eq('month', selMonth).eq('year', selYear);
+  if(error||!data||!data.length){toast('Brak nieopłaconych ocen w tym miesiącu');return;}
+  
+  const sum=data.reduce((a,r)=>a+r.amount,0);
+  const ids=data.map(r=>r.id);
+  const {error:e2}=await sb.from('grades')
+    .update({paid:true,paid_at:new Date().toISOString(),note:'Wypłacono '+(sum>=0?'+':'')+sum+' zł'})
+    .in('id',ids);
+  if(e2){toast('Błąd wypłaty: '+e2.message,3000);return;}
+  toast('Wypłacono '+(sum>=0?'+':'')+sum+' zł za '+ids.length+' ocen!',3500);
+  loadEntries();
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  // Ustawienie aktualnej daty przy starcie formularza
+  const now=new Date();
+  const d=String(now.getDate());
+  const m=String(now.getMonth()+1).padStart(2,'0');
+  const y=String(now.getFullYear());
+  
+  document.getElementById('f-day').value=d;
+  document.getElementById('f-month').value=m;
+  document.getElementById('f-year').value=y;
+  document.getElementById('filter-month').value=m;
+  document.getElementById('filter-year').value=y;
+
+  // Uruchomienie połączenia
+  initSupabase();
+});
+</script>
+</body>
+</html>
